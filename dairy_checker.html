@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dairy Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #faf6f0;
+    --milk: #f5efe3;
+    --butter: #e8d5a3;
+    --caramel: #c9943a;
+    --brown: #5c3d1e;
+    --dark: #1a1208;
+    --red: #d64242;
+    --green: #3a8c5c;
+    --muted: #8a7560;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--dark);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    padding: 40px 0 24px;
+    text-align: center;
+  }
+
+  .logo-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    background: var(--brown);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    box-shadow: 0 4px 20px rgba(92,61,30,0.25);
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 900;
+    color: var(--brown);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .tagline {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--butter), transparent);
+  }
+  .divider span { font-size: 18px; opacity: 0.5; }
+
+  /* ── Tab bar ── */
+  .tab-bar {
+    display: flex;
+    background: white;
+    border-radius: 16px;
+    padding: 5px;
+    box-shadow: 0 2px 20px rgba(92,61,30,0.08), 0 0 0 1px rgba(232,213,163,0.4);
+    margin-bottom: 20px;
+    gap: 4px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 11px 8px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .tab-btn.active {
+    background: var(--brown);
+    color: var(--cream);
+    box-shadow: 0 2px 10px rgba(92,61,30,0.25);
+  }
+
+  .tab-btn:not(.active):hover {
+    background: var(--milk);
+    color: var(--brown);
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Camera card ── */
+  .camera-card {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 2px 40px rgba(92,61,30,0.08), 0 0 0 1px rgba(232,213,163,0.4);
+    margin-bottom: 20px;
+  }
+
+  /* Drop zone / camera trigger */
+  .drop-zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 48px 24px;
+    background: var(--cream);
+    border-bottom: 1px solid rgba(232,213,163,0.5);
+    cursor: pointer;
+    transition: background 0.2s;
+    text-align: center;
+  }
+
+  .drop-zone:hover { background: var(--milk); }
+
+  /* Hidden inputs — one for camera, one for library */
+  #cameraInput, #libraryInput { display: none; }
+
+  .drop-zone-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--brown);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    box-shadow: 0 6px 24px rgba(92,61,30,0.3);
+    transition: transform 0.2s;
+  }
+
+  .drop-zone:hover .drop-zone-icon { transform: scale(1.05); }
+
+  .drop-zone h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--brown);
+  }
+
+  .drop-zone p {
+    font-size: 0.83rem;
+    color: var(--muted);
+    max-width: 260px;
+    line-height: 1.5;
+  }
+
+  /* Two action buttons below icon */
+  .camera-btns {
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px;
+    flex-wrap: wrap;
+  }
+
+  /* The "real" button is a label wrapping a hidden input */
+  .cam-btn {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 20px;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-align: center;
+  }
+
+  .cam-btn-primary {
+    background: var(--brown);
+    color: var(--cream);
+    box-shadow: 0 2px 12px rgba(92,61,30,0.2);
+  }
+
+  .cam-btn-primary:hover {
+    background: var(--dark);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(92,61,30,0.3);
+  }
+
+  .cam-btn-secondary {
+    background: var(--milk);
+    color: var(--brown);
+    border: 1.5px solid var(--butter);
+  }
+
+  .cam-btn-secondary:hover {
+    background: var(--butter);
+    transform: translateY(-1px);
+  }
+
+  /* ── Preview area (shown after image selected) ── */
+  .preview-area {
+    display: none;
+    flex-direction: column;
+  }
+
+  .preview-area.visible { display: flex; }
+
+  .preview-img-wrap {
+    position: relative;
+    width: 100%;
+    max-height: 340px;
+    overflow: hidden;
+    background: #111;
+  }
+
+  #previewImg {
+    width: 100%;
+    max-height: 340px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .preview-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.4));
+    pointer-events: none;
+  }
+
+  .preview-badge {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    color: white;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.06em;
+  }
+
+  .preview-actions {
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px;
+    flex-wrap: wrap;
+  }
+
+  .btn-analyse {
+    flex: 1;
+    padding: 14px 20px;
+    background: var(--brown);
+    color: var(--cream);
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-analyse:hover:not(:disabled) {
+    background: var(--dark);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(92,61,30,0.3);
+  }
+
+  .btn-analyse:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-new-photo {
+    padding: 14px 18px;
+    background: transparent;
+    color: var(--muted);
+    border: 1.5px solid var(--butter);
+    border-radius: 12px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .btn-new-photo:hover { border-color: var(--caramel); color: var(--brown); }
+
+  /* ── Text panel ── */
+  .input-section {
+    background: white;
+    border-radius: 20px;
+    padding: 28px;
+    box-shadow: 0 2px 40px rgba(92,61,30,0.08), 0 0 0 1px rgba(232,213,163,0.4);
+    margin-bottom: 20px;
+  }
+
+  .input-label {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--brown);
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .input-sublabel { font-size: 0.82rem; color: var(--muted); margin-bottom: 14px; }
+
+  textarea {
+    width: 100%;
+    min-height: 140px;
+    border: 1.5px solid var(--butter);
+    border-radius: 12px;
+    padding: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    color: var(--dark);
+    background: var(--cream);
+    resize: vertical;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    line-height: 1.6;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--caramel);
+    box-shadow: 0 0 0 3px rgba(201,148,58,0.12);
+  }
+
+  textarea::placeholder { color: #c4b49a; }
+
+  .input-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    flex: 1;
+    min-width: 160px;
+    padding: 14px 28px;
+    background: var(--brown);
+    color: var(--cream);
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--dark);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(92,61,30,0.3);
+  }
+
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    padding: 14px 20px;
+    background: transparent;
+    color: var(--muted);
+    border: 1.5px solid var(--butter);
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover { border-color: var(--caramel); color: var(--brown); }
+
+  .examples-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .examples-label { font-size: 0.78rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .example-chip {
+    padding: 5px 12px;
+    background: var(--milk);
+    border: 1px solid var(--butter);
+    border-radius: 20px;
+    font-size: 0.78rem;
+    color: var(--brown);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .example-chip:hover { background: var(--butter); transform: scale(1.03); }
+
+  /* ── Loading ── */
+  .loading-state {
+    display: none;
+    text-align: center;
+    padding: 48px 24px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 2px 40px rgba(92,61,30,0.08);
+    margin-bottom: 20px;
+  }
+
+  .loading-state.active { display: block; }
+
+  .milk-loader {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 20px;
+    position: relative;
+  }
+
+  .milk-loader::before {
+    content: '🔍';
+    font-size: 40px;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation: spin 2s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to   { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  .loading-text { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--brown); margin-bottom: 8px; }
+  .loading-sub  { font-size: 0.82rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* ── Result ── */
+  .result-card {
+    display: none;
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 2px 40px rgba(92,61,30,0.08), 0 0 0 1px rgba(232,213,163,0.4);
+    margin-bottom: 20px;
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .result-card.active { display: block; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-header {
+    padding: 24px 28px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .result-header.contains-dairy { background: linear-gradient(135deg,#fff5f5,#ffe8e8); border-bottom: 1px solid #ffd0d0; }
+  .result-header.dairy-free     { background: linear-gradient(135deg,#f0fff8,#e3fff2); border-bottom: 1px solid #c3f0d8; }
+  .result-header.uncertain      { background: linear-gradient(135deg,#fffbf0,#fff3d4); border-bottom: 1px solid #ffe4a0; }
+
+  .verdict-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .contains-dairy .verdict-icon { background: #ffdddd; }
+  .dairy-free     .verdict-icon { background: #d4f5e5; }
+  .uncertain      .verdict-icon { background: #fff0c0; }
+
+  .verdict-text h2 { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; }
+  .contains-dairy .verdict-text h2 { color: var(--red); }
+  .dairy-free     .verdict-text h2 { color: var(--green); }
+  .uncertain      .verdict-text h2 { color: #b07a10; }
+  .verdict-text p { font-size: 0.85rem; color: var(--muted); margin-top: 3px; }
+
+  .result-body { padding: 24px 28px; }
+  .result-section { margin-bottom: 20px; }
+  .result-section:last-child { margin-bottom: 0; }
+
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .dairy-ingredients-list { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .ingredient-tag {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.83rem;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+  }
+
+  .ingredient-tag.dairy         { background: #ffeeee; color: var(--red);   border: 1px solid #ffcccc; }
+  .ingredient-tag.safe          { background: #eefff5; color: var(--green); border: 1px solid #c0f0d8; }
+  .ingredient-tag.uncertain-tag { background: #fffaee; color: #9a6e10;      border: 1px solid #ffe099; }
+
+  .explanation-text { font-size: 0.9rem; line-height: 1.7; color: #4a3520; }
+
+  .confidence-bar { height: 6px; background: #eee; border-radius: 6px; overflow: hidden; margin-top: 8px; }
+  .confidence-fill { height: 100%; border-radius: 6px; transition: width 1s cubic-bezier(0.16, 1, 0.3, 1); }
+
+  .confidence-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-top: 4px;
+  }
+
+  /* ── Error ── */
+  .error-card {
+    display: none;
+    background: #fff5f5;
+    border: 1px solid #ffd0d0;
+    border-radius: 16px;
+    padding: 20px 24px;
+    color: var(--red);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .error-card.active { display: block; }
+
+  footer {
+    text-align: center;
+    padding: 24px 0 44px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+  footer span { color: var(--caramel); }
+
+  @media (max-width: 480px) {
+    .camera-btns, .preview-actions, .input-actions { flex-direction: column; }
+    .cam-btn, .btn-primary { min-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo-icon">🥛</div>
+    <h1>Dairy Checker</h1>
+    <p class="tagline">AI-powered ingredient analysis</p>
+  </header>
+
+  <div class="divider"><span>✦</span></div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabCamera" onclick="switchTab('camera')">📷 Scan Label</button>
+    <button class="tab-btn"        id="tabText"   onclick="switchTab('text')">✏️ Paste Text</button>
+  </div>
+
+  <!-- ══ CAMERA PANEL ══ -->
+  <div class="panel active" id="panelCamera">
+    <div class="camera-card">
+
+      <!-- State A: no image yet -->
+      <div id="stateEmpty">
+        <div class="drop-zone" onclick="document.getElementById('cameraInput').click()">
+          <div class="drop-zone-icon">📷</div>
+          <h2>Photograph a food label</h2>
+          <p>Tap to open your camera and snap the ingredients panel on any product</p>
+        </div>
+        <div class="camera-btns">
+          <!-- Camera input: capture="environment" opens rear camera directly, no browser permission dialog -->
+          <label class="cam-btn cam-btn-primary" for="cameraInput">
+            📷 Open Camera
+          </label>
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handleImage(event, 'camera')">
+
+          <!-- Library input: no capture attribute, shows photo library -->
+          <label class="cam-btn cam-btn-secondary" for="libraryInput">
+            🖼️ Choose from Library
+          </label>
+          <input type="file" id="libraryInput" accept="image/*" onchange="handleImage(event, 'library')">
+        </div>
+      </div>
+
+      <!-- State B: image selected, ready to analyse -->
+      <div class="preview-area" id="statePreview">
+        <div class="preview-img-wrap">
+          <img id="previewImg" alt="Food label photo" />
+          <div class="preview-overlay"></div>
+          <div class="preview-badge" id="previewBadge">📷 Photo ready</div>
+        </div>
+        <div class="preview-actions">
+          <button class="btn-analyse" id="btnAnalyse" onclick="analyseImage()">
+            🔍 Analyse for Dairy
+          </button>
+          <button class="btn-new-photo" onclick="resetCamera()">↩ New Photo</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ TEXT PANEL ══ -->
+  <div class="panel" id="panelText">
+    <div class="input-section">
+      <label class="input-label" for="ingredients">Paste your ingredients list</label>
+      <p class="input-sublabel">Copy from a food label, recipe, or product page</p>
+      <textarea id="ingredients" placeholder="e.g. Water, whole grain oats, sugar, palm oil, modified corn starch, milk powder, soy lecithin, natural flavors, salt..."></textarea>
+
+      <div class="input-actions">
+        <button class="btn-primary" id="checkBtn" onclick="checkIngredients()">
+          <span>🔍</span> Check for Dairy
+        </button>
+        <button class="btn-secondary" onclick="clearAll()">Clear</button>
+      </div>
+
+      <div class="examples-bar">
+        <span class="examples-label">Try:</span>
+        <span class="example-chip" onclick="loadExample('dairy')">🧀 Has dairy</span>
+        <span class="example-chip" onclick="loadExample('free')">🌱 Dairy-free</span>
+        <span class="example-chip" onclick="loadExample('tricky')">🤔 Tricky case</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" id="loadingState">
+    <div class="milk-loader"></div>
+    <p class="loading-text" id="loadingText">Scanning...</p>
+    <p class="loading-sub"  id="loadingSub">Checking for dairy, derivatives &amp; hidden sources</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" id="errorCard"></div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header" id="resultHeader">
+      <div class="verdict-icon" id="verdictIcon"></div>
+      <div class="verdict-text">
+        <h2 id="verdictTitle"></h2>
+        <p  id="verdictSubtitle"></p>
+      </div>
+    </div>
+    <div class="result-body">
+      <div class="result-section" id="dairyIngredientsSection">
+        <div class="section-title" id="ingredientsSectionLabel">Dairy Ingredients Found</div>
+        <div class="dairy-ingredients-list" id="dairyIngredientsList"></div>
+      </div>
+      <div class="result-section">
+        <div class="section-title">Analysis</div>
+        <p class="explanation-text" id="explanationText"></p>
+      </div>
+      <div class="result-section">
+        <div class="section-title">Confidence</div>
+        <div class="confidence-bar"><div class="confidence-fill" id="confidenceFill"></div></div>
+        <div class="confidence-label">
+          <span id="confidenceLabel"></span>
+          <span id="confidencePercent"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Powered by <span>Claude AI</span> · Always verify with manufacturer for severe allergies
+  </footer>
+</div>
+
+<script>
+  let capturedBase64 = null;
+
+  const examples = {
+    dairy:  `Water, enriched flour (wheat flour, niacin, iron, thiamine mononitrate, riboflavin, folic acid), sugar, butter (cream, salt), whole milk, eggs, cocoa processed with alkali, modified corn starch, whey, nonfat dry milk, soy lecithin, vanilla extract, salt, leavening (baking soda, sodium aluminum phosphate).`,
+    free:   `Water, brown rice flour, tapioca starch, sunflower oil, coconut sugar, apple cider vinegar, flaxseed meal, sea salt, xanthan gum, yeast extract, rosemary extract, turmeric (for color), black pepper, garlic powder.`,
+    tricky: `Glucose syrup, vegetable fat (palm, shea), sugar, cocoa powder, soy lecithin, natural flavors (including dairy-derived lactic acid), modified starch, mono and diglycerides, carrageenan, sodium caseinate, artificial colors (FD&C Yellow 5, Red 40).`
+  };
+
+  /* ── Tabs ── */
+  function switchTab(tab) {
+    ['camera','text'].forEach(t => {
+      document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+      document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+    });
+    clearResults();
+  }
+
+  /* ── Image handling ── */
+  function handleImage(e, source) {
+    const file = e.target.files[0];
+    if (!file) return;
+    clearResults();
+
+    const reader = new FileReader();
+    reader.onload = ev => {
+      capturedBase64 = ev.target.result.split(',')[1];
+
+      document.getElementById('previewImg').src = ev.target.result;
+      document.getElementById('previewBadge').textContent =
+        source === 'camera' ? '📷 Photo taken' : '🖼️ Image loaded';
+
+      document.getElementById('stateEmpty').style.display   = 'none';
+      document.getElementById('statePreview').classList.add('visible');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // allow re-selecting same file
+  }
+
+  function resetCamera() {
+    capturedBase64 = null;
+    document.getElementById('previewImg').src = '';
+    document.getElementById('stateEmpty').style.display = '';
+    document.getElementById('statePreview').classList.remove('visible');
+    clearResults();
+  }
+
+  /* ── Analyse image ── */
+  async function analyseImage() {
+    if (!capturedBase64) return;
+    clearResults();
+
+    document.getElementById('loadingText').textContent = 'Reading label...';
+    document.getElementById('loadingSub').textContent  = 'Extracting & analysing ingredients from your photo';
+    document.getElementById('loadingState').classList.add('active');
+    document.getElementById('btnAnalyse').disabled = true;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: buildSystem('vision'),
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: capturedBase64 } },
+              { type: 'text',  text: 'Please read the ingredients from this food label photo and check for dairy content.' }
+            ]
+          }]
+        })
+      });
+
+      document.getElementById('loadingState').classList.remove('active');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'API error');
+
+      renderResult(parseJSON(data));
+    } catch(err) {
+      document.getElementById('loadingState').classList.remove('active');
+      showError(err.message);
+    } finally {
+      document.getElementById('btnAnalyse').disabled = false;
+    }
+  }
+
+  /* ── Text analysis ── */
+  function loadExample(type) { document.getElementById('ingredients').value = examples[type]; clearResults(); }
+  function clearAll()        { document.getElementById('ingredients').value = ''; clearResults(); }
+
+  async function checkIngredients() {
+    const text = document.getElementById('ingredients').value.trim();
+    if (!text) { showError('Please paste an ingredients list to check.'); return; }
+
+    clearResults();
+    document.getElementById('loadingText').textContent = 'Scanning ingredients...';
+    document.getElementById('loadingSub').textContent  = 'Checking for dairy, derivatives & hidden sources';
+    document.getElementById('loadingState').classList.add('active');
+    document.getElementById('checkBtn').disabled = true;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: buildSystem('text'),
+          messages: [{ role: 'user', content: `Check this ingredients list for dairy content:\n\n${text}` }]
+        })
+      });
+
+      document.getElementById('loadingState').classList.remove('active');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'API error');
+
+      renderResult(parseJSON(data));
+    } catch(err) {
+      document.getElementById('loadingState').classList.remove('active');
+      showError(err.message);
+    } finally {
+      document.getElementById('checkBtn').disabled = false;
+    }
+  }
+
+  /* ── Helpers ── */
+  function buildSystem(mode) {
+    const base = `Return ONLY valid JSON, no markdown, no backticks, no extra text.
+
+{
+  "verdict": "contains_dairy" | "dairy_free" | "uncertain",
+  "verdictTitle": "short title",
+  "verdictSubtitle": "short subtitle",
+  "dairyIngredients": ["obvious and hidden dairy ingredients found"],
+  "safeIngredients": ["notable dairy-free ingredients"],
+  "uncertainIngredients": ["possibly dairy-derived ingredients"],
+  "explanation": "2-3 sentence explanation",
+  "confidence": 85
+}
+
+confidence is 0–100. Dairy includes milk, butter, cream, cheese, whey, casein, lactose, ghee, curds, and all derivatives.`;
+
+    if (mode === 'vision')
+      return 'You are a dairy ingredient detection expert with vision. Read/OCR the ingredient list from the photo, then analyse for dairy. ' + base + ' If the image is unclear or not a food label, set verdict to "uncertain" and explain.';
+    return 'You are a dairy ingredient detection expert. Analyse the given ingredient list for dairy content. ' + base;
+  }
+
+  function parseJSON(data) {
+    const text = data.content.map(b => b.text || '').join('');
+    try { return JSON.parse(text.replace(/```json|```/g, '').trim()); }
+    catch { throw new Error('Could not parse AI response. Please try again.'); }
+  }
+
+  function clearResults() {
+    document.getElementById('resultCard').classList.remove('active');
+    document.getElementById('errorCard').classList.remove('active');
+    document.getElementById('loadingState').classList.remove('active');
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorCard');
+    el.textContent = '⚠️ ' + (msg || 'Something went wrong. Please try again.');
+    el.classList.add('active');
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function renderResult(r) {
+    const header = document.getElementById('resultHeader');
+    header.className = 'result-header ' +
+      (r.verdict === 'contains_dairy' ? 'contains-dairy' : r.verdict === 'dairy_free' ? 'dairy-free' : 'uncertain');
+
+    document.getElementById('verdictIcon').textContent     = r.verdict === 'contains_dairy' ? '🚫' : r.verdict === 'dairy_free' ? '✅' : '⚠️';
+    document.getElementById('verdictTitle').textContent    = r.verdictTitle    || 'Analysis Complete';
+    document.getElementById('verdictSubtitle').textContent = r.verdictSubtitle || '';
+
+    const list    = document.getElementById('dairyIngredientsList');
+    const section = document.getElementById('dairyIngredientsSection');
+    list.innerHTML = '';
+
+    const tags = [
+      ...(r.dairyIngredients     || []).map(i => [i, 'dairy']),
+      ...(r.uncertainIngredients || []).map(i => [i, 'uncertain-tag']),
+      ...(r.safeIngredients      || []).slice(0, 4).map(i => [i, 'safe'])
+    ];
+
+    if (tags.length) {
+      section.style.display = '';
+      document.getElementById('ingredientsSectionLabel').textContent =
+        r.verdict === 'contains_dairy' ? 'Ingredients Detected' :
+        r.verdict === 'dairy_free'     ? 'Notable Ingredients'  : 'Flagged Ingredients';
+      tags.forEach(([text, cls]) => {
+        const t = document.createElement('span');
+        t.className = `ingredient-tag ${cls}`;
+        t.textContent = text;
+        list.appendChild(t);
+      });
+    } else {
+      section.style.display = 'none';
+    }
+
+    document.getElementById('explanationText').textContent = r.explanation || '';
+
+    const pct = Math.min(100, Math.max(0, r.confidence || 80));
+    const fill = document.getElementById('confidenceFill');
+    fill.style.background = r.verdict === 'contains_dairy' ? '#d64242' : r.verdict === 'dairy_free' ? '#3a8c5c' : '#c9943a';
+    fill.style.width = '0%';
+    setTimeout(() => fill.style.width = pct + '%', 100);
+    document.getElementById('confidencePercent').textContent = pct + '%';
+    document.getElementById('confidenceLabel').textContent   =
+      pct >= 85 ? 'High confidence' : pct >= 60 ? 'Moderate confidence' : 'Low confidence — verify manually';
+
+    document.getElementById('resultCard').classList.add('active');
+    document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+</script>
+</body>
+</html>
